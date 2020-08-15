@@ -78,7 +78,9 @@ public class SoftKeyboard extends InputMethodService
       // so we need to be able to re-build the keyboards if the available
       // space has changed.
       int displayWidth = getMaxWidth();
-      if (displayWidth == mLastDisplayWidth) return;
+      if (displayWidth == mLastDisplayWidth) {
+        return;
+      }
       mLastDisplayWidth = displayWidth;
     }
     mQwertyKeyboard = new LatinKeyboard(displayContext, R.xml.qwerty);

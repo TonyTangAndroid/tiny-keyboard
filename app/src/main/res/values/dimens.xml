@@ -1,5 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?>
-<!--
+<?xml version="1.0" encoding="utf-8"?><!--
 /* 
 **
 ** Copyright 2008, The Android Open Source Project
@@ -19,9 +18,9 @@
 -->
 
 <resources>
-    <dimen name="key_height">50dp</dimen>
-    <dimen name="key_width">10%p</dimen>
-    <dimen name="key_width_action">15%p</dimen>
-    <dimen name="key_width_space">40%p</dimen>
-    <dimen name="key_text_size">18dp</dimen>
+  <dimen name="key_height">50dp</dimen>
+  <dimen name="key_width">10%p</dimen>
+  <dimen name="key_width_action">15%p</dimen>
+  <dimen name="key_width_space">40%p</dimen>
+  <dimen name="key_text_size">18dp</dimen>
 </resources>

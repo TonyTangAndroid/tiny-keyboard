@@ -1,5 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?>
-<!--
+<?xml version="1.0" encoding="utf-8"?><!--
 /**
  * Copyright (c) 2008, The Android Open Source Project
  *
@@ -21,10 +20,9 @@
 <!-- for the Search Manager. -->
 
 <input-method xmlns:android="http://schemas.android.com/apk/res/android"
-        android:supportsSwitchingToNextInputMethod="true"
->
-    <subtype
-        android:label="%s"
-        android:imeSubtypeLocale="en_US"
-        android:imeSubtypeMode="keyboard" />
+  android:supportsSwitchingToNextInputMethod="true">
+  <subtype
+    android:imeSubtypeLocale="en_US"
+    android:imeSubtypeMode="keyboard"
+    android:label="%s" />
 </input-method>

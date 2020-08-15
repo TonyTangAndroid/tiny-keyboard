@@ -1,16 +1,19 @@
-<manifest xmlns:android="http://schemas.android.com/apk/res/android" 
-        package="rkr.tinykeyboard.inputmethod">
-    <application
-        android:label="@string/ime_name"
-        android:icon="@drawable/ic_launcher">
-        <service
-            android:name="SoftKeyboard"
-            android:directBootAware="true"
-            android:permission="android.permission.BIND_INPUT_METHOD">
-            <intent-filter>
-                <action android:name="android.view.InputMethod" />
-            </intent-filter>
-            <meta-data android:name="android.view.im" android:resource="@xml/method" />
-        </service>
-    </application>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+  package="rkr.tinykeyboard.inputmethod">
+
+  <application
+    android:icon="@drawable/ic_launcher"
+    android:label="@string/ime_name">
+    <service
+      android:name="SoftKeyboard"
+      android:directBootAware="true"
+      android:permission="android.permission.BIND_INPUT_METHOD">
+      <intent-filter>
+        <action android:name="android.view.InputMethod" />
+      </intent-filter>
+      <meta-data
+        android:name="android.view.im"
+        android:resource="@xml/method" />
+    </service>
+  </application>
 </manifest>
