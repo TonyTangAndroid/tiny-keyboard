@@ -32,238 +32,238 @@ import android.view.inputmethod.EditorInfo;
 import android.view.inputmethod.InputMethodManager;
 
 public class SoftKeyboard extends InputMethodService
-        implements KeyboardView.OnKeyboardActionListener {
+    implements KeyboardView.OnKeyboardActionListener {
 
-    private InputMethodManager mInputMethodManager;
+  private InputMethodManager mInputMethodManager;
 
-    private KeyboardView mInputView;
+  private KeyboardView mInputView;
 
-    private int mLastDisplayWidth;
-    private boolean mCapsLock;
-    private long mLastShiftTime;
-    
-    private LatinKeyboard mSymbolsKeyboard;
-    private LatinKeyboard mSymbolsShiftedKeyboard;
-    private LatinKeyboard mQwertyKeyboard;
-    
-    private LatinKeyboard mCurKeyboard;
+  private int mLastDisplayWidth;
+  private boolean mCapsLock;
+  private long mLastShiftTime;
 
-    @Override public void onCreate() {
-        super.onCreate();
-        mInputMethodManager = (InputMethodManager)getSystemService(INPUT_METHOD_SERVICE);
+  private LatinKeyboard mSymbolsKeyboard;
+  private LatinKeyboard mSymbolsShiftedKeyboard;
+  private LatinKeyboard mQwertyKeyboard;
+
+  private LatinKeyboard mCurKeyboard;
+
+  @Override
+  public void onCreate() {
+    super.onCreate();
+    mInputMethodManager = (InputMethodManager) getSystemService(INPUT_METHOD_SERVICE);
+  }
+
+  Context getDisplayContext() {
+    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.KITKAT) {
+      // createDisplayContext is not available.
+      return this;
     }
+    // TODO (b/133825283): Non-activity components Resources / DisplayMetrics update when
+    //  moving to external display.
+    // An issue in Q that non-activity components Resources / DisplayMetrics in
+    // Context doesn't well updated when the IME window moving to external display.
+    // Currently we do a workaround is to create new display context directly and re-init
+    // keyboard layout with this context.
+    final WindowManager wm = (WindowManager) getSystemService(Context.WINDOW_SERVICE);
+    return createDisplayContext(wm.getDefaultDisplay());
+  }
 
-    Context getDisplayContext() {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.KITKAT) {
-            // createDisplayContext is not available.
-            return this;
-        }
-        // TODO (b/133825283): Non-activity components Resources / DisplayMetrics update when
-        //  moving to external display.
-        // An issue in Q that non-activity components Resources / DisplayMetrics in
-        // Context doesn't well updated when the IME window moving to external display.
-        // Currently we do a workaround is to create new display context directly and re-init
-        // keyboard layout with this context.
-        final WindowManager wm = (WindowManager) getSystemService(Context.WINDOW_SERVICE);
-        return createDisplayContext(wm.getDefaultDisplay());
+  @Override
+  public void onInitializeInterface() {
+    final Context displayContext = getDisplayContext();
+
+    if (mQwertyKeyboard != null) {
+      // Configuration changes can happen after the keyboard gets recreated,
+      // so we need to be able to re-build the keyboards if the available
+      // space has changed.
+      int displayWidth = getMaxWidth();
+      if (displayWidth == mLastDisplayWidth) return;
+      mLastDisplayWidth = displayWidth;
     }
+    mQwertyKeyboard = new LatinKeyboard(displayContext, R.xml.qwerty);
+    mSymbolsKeyboard = new LatinKeyboard(displayContext, R.xml.symbols);
+    mSymbolsShiftedKeyboard = new LatinKeyboard(displayContext, R.xml.symbols_shift);
+  }
 
-    @Override public void onInitializeInterface() {
-        final Context displayContext = getDisplayContext();
+  @Override
+  public View onCreateInputView() {
+    mInputView = (KeyboardView) getLayoutInflater().inflate(R.layout.input, null);
+    mInputView.setOnKeyboardActionListener(this);
+    mInputView.setPreviewEnabled(false);
+    setLatinKeyboard(mQwertyKeyboard);
+    return mInputView;
+  }
 
-        if (mQwertyKeyboard != null) {
-            // Configuration changes can happen after the keyboard gets recreated,
-            // so we need to be able to re-build the keyboards if the available
-            // space has changed.
-            int displayWidth = getMaxWidth();
-            if (displayWidth == mLastDisplayWidth) return;
-            mLastDisplayWidth = displayWidth;
-        }
-        mQwertyKeyboard = new LatinKeyboard(displayContext, R.xml.qwerty);
-        mSymbolsKeyboard = new LatinKeyboard(displayContext, R.xml.symbols);
-        mSymbolsShiftedKeyboard = new LatinKeyboard(displayContext, R.xml.symbols_shift);
+  private void setLatinKeyboard(LatinKeyboard nextKeyboard) {
+    if (Build.VERSION.SDK_INT > Build.VERSION_CODES.KITKAT) {
+      final boolean shouldSupportLanguageSwitchKey =
+          mInputMethodManager.shouldOfferSwitchingToNextInputMethod(getToken());
+      nextKeyboard.setLanguageSwitchKeyVisibility(shouldSupportLanguageSwitchKey);
     }
+    mInputView.setKeyboard(nextKeyboard);
+  }
 
-    @Override public View onCreateInputView() {
-        mInputView = (KeyboardView) getLayoutInflater().inflate(R.layout.input, null);
-        mInputView.setOnKeyboardActionListener(this);
-        mInputView.setPreviewEnabled(false);
-        setLatinKeyboard(mQwertyKeyboard);
-        return mInputView;
-    }
+  @Override
+  public void onStartInput(EditorInfo attribute, boolean restarting) {
+    super.onStartInput(attribute, restarting);
 
-    private void setLatinKeyboard(LatinKeyboard nextKeyboard) {
-        if (Build.VERSION.SDK_INT > Build.VERSION_CODES.KITKAT) {
-            final boolean shouldSupportLanguageSwitchKey = mInputMethodManager.shouldOfferSwitchingToNextInputMethod(getToken());
-            nextKeyboard.setLanguageSwitchKeyVisibility(shouldSupportLanguageSwitchKey);
-        }
-        mInputView.setKeyboard(nextKeyboard);
-    }
+    // We are now going to initialize our state based on the type of
+    // text being edited.
+    switch (attribute.inputType & InputType.TYPE_MASK_CLASS) {
+      case InputType.TYPE_CLASS_NUMBER:
+      case InputType.TYPE_CLASS_DATETIME:
+      case InputType.TYPE_CLASS_PHONE:
+        // Numbers and dates default to the symbols keyboard, with
+        // no extra features.
+        mCurKeyboard = mSymbolsKeyboard;
+        break;
 
-    @Override public void onStartInput(EditorInfo attribute, boolean restarting) {
-        super.onStartInput(attribute, restarting);
-        
-        // We are now going to initialize our state based on the type of
-        // text being edited.
-        switch (attribute.inputType & InputType.TYPE_MASK_CLASS) {
-            case InputType.TYPE_CLASS_NUMBER:
-            case InputType.TYPE_CLASS_DATETIME:
-            case InputType.TYPE_CLASS_PHONE:
-                // Numbers and dates default to the symbols keyboard, with
-                // no extra features.
-                mCurKeyboard = mSymbolsKeyboard;
-                break;
-                
-            default:
-                // For all unknown input types, default to the alphabetic
-                // keyboard with no special features.
-                mCurKeyboard = mQwertyKeyboard;
-                updateShiftKeyState(attribute);
-        }
-        
-        // Update the label on the enter key, depending on what the application
-        // says it will do.
-        mCurKeyboard.setImeOptions(getResources(), attribute.imeOptions);
-    }
-
-    @Override public void onFinishInput() {
-        super.onFinishInput();
-        
+      default:
+        // For all unknown input types, default to the alphabetic
+        // keyboard with no special features.
         mCurKeyboard = mQwertyKeyboard;
-        if (mInputView != null) {
-            mInputView.closing();
-        }
-    }
-    
-    @Override public void onStartInputView(EditorInfo attribute, boolean restarting) {
-        super.onStartInputView(attribute, restarting);
-        // Apply the selected keyboard to the input view.
-        setLatinKeyboard(mCurKeyboard);
-        mInputView.closing();
+        updateShiftKeyState(attribute);
     }
 
-    private void updateShiftKeyState(EditorInfo attr) {
-        if (attr != null && mInputView != null && mQwertyKeyboard == mInputView.getKeyboard()) {
-            int caps = 0;
-            EditorInfo ei = getCurrentInputEditorInfo();
-            if (ei != null && ei.inputType != InputType.TYPE_NULL) {
-                caps = getCurrentInputConnection().getCursorCapsMode(attr.inputType);
-            }
-            mInputView.setShifted(mCapsLock || caps != 0);
-        }
+    // Update the label on the enter key, depending on what the application
+    // says it will do.
+    mCurKeyboard.setImeOptions(getResources(), attribute.imeOptions);
+  }
+
+  @Override
+  public void onFinishInput() {
+    super.onFinishInput();
+
+    mCurKeyboard = mQwertyKeyboard;
+    if (mInputView != null) {
+      mInputView.closing();
+    }
+  }
+
+  @Override
+  public void onStartInputView(EditorInfo attribute, boolean restarting) {
+    super.onStartInputView(attribute, restarting);
+    // Apply the selected keyboard to the input view.
+    setLatinKeyboard(mCurKeyboard);
+    mInputView.closing();
+  }
+
+  private void updateShiftKeyState(EditorInfo attr) {
+    if (attr != null && mInputView != null && mQwertyKeyboard == mInputView.getKeyboard()) {
+      int caps = 0;
+      EditorInfo ei = getCurrentInputEditorInfo();
+      if (ei != null && ei.inputType != InputType.TYPE_NULL) {
+        caps = getCurrentInputConnection().getCursorCapsMode(attr.inputType);
+      }
+      mInputView.setShifted(mCapsLock || caps != 0);
+    }
+  }
+
+  private void keyDownUp(int keyEventCode) {
+    getCurrentInputConnection().sendKeyEvent(new KeyEvent(KeyEvent.ACTION_DOWN, keyEventCode));
+    getCurrentInputConnection().sendKeyEvent(new KeyEvent(KeyEvent.ACTION_UP, keyEventCode));
+  }
+
+  // Implementation of KeyboardViewListener
+
+  public void onKey(int primaryCode, int[] keyCodes) {
+    if (primaryCode == Keyboard.KEYCODE_DONE) {
+      keyDownUp(KeyEvent.KEYCODE_ENTER);
+    } else if (primaryCode == Keyboard.KEYCODE_DELETE) {
+      handleBackspace();
+    } else if (primaryCode == Keyboard.KEYCODE_SHIFT) {
+      handleShift();
+    } else if (primaryCode == LatinKeyboard.KEYCODE_LANGUAGE_SWITCH) {
+      handleLanguageSwitch();
+    } else if (primaryCode == Keyboard.KEYCODE_MODE_CHANGE && mInputView != null) {
+      Keyboard current = mInputView.getKeyboard();
+      if (current == mSymbolsKeyboard || current == mSymbolsShiftedKeyboard) {
+        setLatinKeyboard(mQwertyKeyboard);
+      } else {
+        setLatinKeyboard(mSymbolsKeyboard);
+        mSymbolsKeyboard.setShifted(false);
+      }
+    } else {
+      handleCharacter(primaryCode);
+    }
+  }
+
+  public void onText(CharSequence text) {}
+
+  private void handleBackspace() {
+    keyDownUp(KeyEvent.KEYCODE_DEL);
+    updateShiftKeyState(getCurrentInputEditorInfo());
+  }
+
+  private void handleShift() {
+    if (mInputView == null) {
+      return;
     }
 
-    private void keyDownUp(int keyEventCode) {
-        getCurrentInputConnection().sendKeyEvent(new KeyEvent(KeyEvent.ACTION_DOWN, keyEventCode));
-        getCurrentInputConnection().sendKeyEvent(new KeyEvent(KeyEvent.ACTION_UP, keyEventCode));
+    Keyboard currentKeyboard = mInputView.getKeyboard();
+    if (mQwertyKeyboard == currentKeyboard) {
+      // Alphabet keyboard
+      checkToggleCapsLock();
+      mInputView.setShifted(mCapsLock || !mInputView.isShifted());
+    } else if (currentKeyboard == mSymbolsKeyboard) {
+      mSymbolsKeyboard.setShifted(true);
+      setLatinKeyboard(mSymbolsShiftedKeyboard);
+      mSymbolsShiftedKeyboard.setShifted(true);
+    } else if (currentKeyboard == mSymbolsShiftedKeyboard) {
+      mSymbolsShiftedKeyboard.setShifted(false);
+      setLatinKeyboard(mSymbolsKeyboard);
+      mSymbolsKeyboard.setShifted(false);
     }
+  }
 
-    // Implementation of KeyboardViewListener
+  private void handleCharacter(int primaryCode) {
+    if (isInputViewShown()) {
+      if (mInputView.isShifted()) {
+        primaryCode = Character.toUpperCase(primaryCode);
+      }
+    }
+    getCurrentInputConnection().commitText(String.valueOf((char) primaryCode), 1);
+    updateShiftKeyState(getCurrentInputEditorInfo());
+  }
 
-    public void onKey(int primaryCode, int[] keyCodes) {
-        if (primaryCode == Keyboard.KEYCODE_DONE) {
-            keyDownUp(KeyEvent.KEYCODE_ENTER);
-        } else if (primaryCode == Keyboard.KEYCODE_DELETE) {
-            handleBackspace();
-        } else if (primaryCode == Keyboard.KEYCODE_SHIFT) {
-            handleShift();
-        } else if (primaryCode == LatinKeyboard.KEYCODE_LANGUAGE_SWITCH) {
-            handleLanguageSwitch();
-        } else if (primaryCode == Keyboard.KEYCODE_MODE_CHANGE && mInputView != null) {
-            Keyboard current = mInputView.getKeyboard();
-            if (current == mSymbolsKeyboard || current == mSymbolsShiftedKeyboard) {
-                setLatinKeyboard(mQwertyKeyboard);
-            } else {
-                setLatinKeyboard(mSymbolsKeyboard);
-                mSymbolsKeyboard.setShifted(false);
-            }
-        } else {
-            handleCharacter(primaryCode);
-        }
+  private IBinder getToken() {
+    final Dialog dialog = getWindow();
+    if (dialog == null) {
+      return null;
     }
+    final Window window = dialog.getWindow();
+    if (window == null) {
+      return null;
+    }
+    return window.getAttributes().token;
+  }
 
-    public void onText(CharSequence text) {
+  private void handleLanguageSwitch() {
+    if (Build.VERSION.SDK_INT > Build.VERSION_CODES.ICE_CREAM_SANDWICH_MR1) {
+      mInputMethodManager.switchToNextInputMethod(getToken(), false /* onlyCurrentIme */);
     }
-    
-    private void handleBackspace() {
-        keyDownUp(KeyEvent.KEYCODE_DEL);
-        updateShiftKeyState(getCurrentInputEditorInfo());
-    }
+  }
 
-    private void handleShift() {
-        if (mInputView == null) {
-            return;
-        }
-        
-        Keyboard currentKeyboard = mInputView.getKeyboard();
-        if (mQwertyKeyboard == currentKeyboard) {
-            // Alphabet keyboard
-            checkToggleCapsLock();
-            mInputView.setShifted(mCapsLock || !mInputView.isShifted());
-        } else if (currentKeyboard == mSymbolsKeyboard) {
-            mSymbolsKeyboard.setShifted(true);
-            setLatinKeyboard(mSymbolsShiftedKeyboard);
-            mSymbolsShiftedKeyboard.setShifted(true);
-        } else if (currentKeyboard == mSymbolsShiftedKeyboard) {
-            mSymbolsShiftedKeyboard.setShifted(false);
-            setLatinKeyboard(mSymbolsKeyboard);
-            mSymbolsKeyboard.setShifted(false);
-        }
+  private void checkToggleCapsLock() {
+    long now = System.currentTimeMillis();
+    if (mLastShiftTime + 800 > now) {
+      mCapsLock = !mCapsLock;
+      mLastShiftTime = 0;
+    } else {
+      mLastShiftTime = now;
     }
-    
-    private void handleCharacter(int primaryCode) {
-        if (isInputViewShown()) {
-            if (mInputView.isShifted()) {
-                primaryCode = Character.toUpperCase(primaryCode);
-            }
-        }
-        getCurrentInputConnection().commitText(String.valueOf((char) primaryCode), 1);
-        updateShiftKeyState(getCurrentInputEditorInfo());
-    }
+  }
 
-    private IBinder getToken() {
-        final Dialog dialog = getWindow();
-        if (dialog == null) {
-            return null;
-        }
-        final Window window = dialog.getWindow();
-        if (window == null) {
-            return null;
-        }
-        return window.getAttributes().token;
-    }
+  public void swipeRight() {}
 
-    private void handleLanguageSwitch() {
-        if (Build.VERSION.SDK_INT > Build.VERSION_CODES.ICE_CREAM_SANDWICH_MR1) {
-            mInputMethodManager.switchToNextInputMethod(getToken(), false /* onlyCurrentIme */);
-        }
-    }
+  public void swipeLeft() {}
 
-    private void checkToggleCapsLock() {
-        long now = System.currentTimeMillis();
-        if (mLastShiftTime + 800 > now) {
-            mCapsLock = !mCapsLock;
-            mLastShiftTime = 0;
-        } else {
-            mLastShiftTime = now;
-        }
-    }
-    
-    public void swipeRight() {
-    }
-    
-    public void swipeLeft() {
-    }
+  public void swipeDown() {}
 
-    public void swipeDown() {
-    }
+  public void swipeUp() {}
 
-    public void swipeUp() {
-    }
-    
-    public void onPress(int primaryCode) {
-    }
-    
-    public void onRelease(int primaryCode) {
-    }
+  public void onPress(int primaryCode) {}
+
+  public void onRelease(int primaryCode) {}
 }

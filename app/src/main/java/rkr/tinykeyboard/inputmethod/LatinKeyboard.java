@@ -24,68 +24,69 @@ import android.view.inputmethod.EditorInfo;
 
 public class LatinKeyboard extends Keyboard {
 
-    public static final int KEYCODE_LANGUAGE_SWITCH = -101;
+  public static final int KEYCODE_LANGUAGE_SWITCH = -101;
 
-    private Key mEnterKey;
-    private Key mSpaceKey;
-    private Key mLanguageSwitchKey;
-    private Key mSavedSpaceKey;
-    private Key mSavedLanguageSwitchKey;
+  private Key mEnterKey;
+  private Key mSpaceKey;
+  private Key mLanguageSwitchKey;
+  private Key mSavedSpaceKey;
+  private Key mSavedLanguageSwitchKey;
 
-    public LatinKeyboard(Context context, int xmlLayoutResId) {
-        super(context, xmlLayoutResId);
+  public LatinKeyboard(Context context, int xmlLayoutResId) {
+    super(context, xmlLayoutResId);
+  }
+
+  @Override
+  protected Key createKeyFromXml(
+      Resources res, Row parent, int x, int y, XmlResourceParser parser) {
+    Key key = new Key(res, parent, x, y, parser);
+    if (key.codes[0] == Keyboard.KEYCODE_DONE) {
+      mEnterKey = key;
+    } else if (key.codes[0] == 32) {
+      mSpaceKey = key;
+      mSavedSpaceKey = new Key(res, parent, x, y, parser);
+    } else if (key.codes[0] == KEYCODE_LANGUAGE_SWITCH) {
+      mLanguageSwitchKey = key;
+      mSavedLanguageSwitchKey = new Key(res, parent, x, y, parser);
+    }
+    return key;
+  }
+
+  void setLanguageSwitchKeyVisibility(boolean visible) {
+    if (visible) {
+      mSpaceKey.width = mSavedSpaceKey.width;
+      mSpaceKey.x = mSavedSpaceKey.x;
+      mLanguageSwitchKey.width = mSavedLanguageSwitchKey.width;
+      mLanguageSwitchKey.label = mSavedLanguageSwitchKey.label;
+    } else {
+      mSpaceKey.width = mSavedSpaceKey.width + mSavedLanguageSwitchKey.width;
+      mSpaceKey.x = mSavedSpaceKey.x - mSavedLanguageSwitchKey.width;
+      mLanguageSwitchKey.width = 0;
+      mLanguageSwitchKey.label = null;
+    }
+  }
+
+  void setImeOptions(Resources res, int options) {
+    if (mEnterKey == null) {
+      return;
     }
 
-    @Override
-    protected Key createKeyFromXml(Resources res, Row parent, int x, int y, XmlResourceParser parser) {
-        Key key = new Key(res, parent, x, y, parser);
-        if (key.codes[0] == Keyboard.KEYCODE_DONE) {
-            mEnterKey = key;
-        } else if (key.codes[0] == 32) {
-            mSpaceKey = key;
-            mSavedSpaceKey = new Key(res, parent, x, y, parser);
-        } else if (key.codes[0] == KEYCODE_LANGUAGE_SWITCH) {
-            mLanguageSwitchKey = key;
-            mSavedLanguageSwitchKey = new Key(res, parent, x, y, parser);
-        }
-        return key;
+    switch (options & (EditorInfo.IME_MASK_ACTION | EditorInfo.IME_FLAG_NO_ENTER_ACTION)) {
+      case EditorInfo.IME_ACTION_GO:
+        mEnterKey.label = res.getText(R.string.label_go_key);
+        break;
+      case EditorInfo.IME_ACTION_NEXT:
+        mEnterKey.label = res.getText(R.string.label_next_key);
+        break;
+      case EditorInfo.IME_ACTION_SEARCH:
+        mEnterKey.label = res.getString(R.string.search);
+        break;
+      case EditorInfo.IME_ACTION_SEND:
+        mEnterKey.label = res.getText(R.string.label_send_key);
+        break;
+      default:
+        mEnterKey.label = res.getString(R.string.enter);
+        break;
     }
-
-    void setLanguageSwitchKeyVisibility(boolean visible) {
-        if (visible) {
-            mSpaceKey.width = mSavedSpaceKey.width;
-            mSpaceKey.x = mSavedSpaceKey.x;
-            mLanguageSwitchKey.width = mSavedLanguageSwitchKey.width;
-            mLanguageSwitchKey.label = mSavedLanguageSwitchKey.label;
-        } else {
-            mSpaceKey.width = mSavedSpaceKey.width + mSavedLanguageSwitchKey.width;
-            mSpaceKey.x = mSavedSpaceKey.x - mSavedLanguageSwitchKey.width;
-            mLanguageSwitchKey.width = 0;
-            mLanguageSwitchKey.label = null;
-        }
-    }
-
-    void setImeOptions(Resources res, int options) {
-        if (mEnterKey == null) {
-            return;
-        }
-
-        switch (options&(EditorInfo.IME_MASK_ACTION|EditorInfo.IME_FLAG_NO_ENTER_ACTION)) {
-            case EditorInfo.IME_ACTION_GO:
-                mEnterKey.label = res.getText(R.string.label_go_key);
-                break;
-            case EditorInfo.IME_ACTION_NEXT:
-                mEnterKey.label = res.getText(R.string.label_next_key);
-                break;
-            case EditorInfo.IME_ACTION_SEARCH:
-                mEnterKey.label = res.getString(R.string.search);
-                break;
-            case EditorInfo.IME_ACTION_SEND:
-                mEnterKey.label = res.getText(R.string.label_send_key);
-                break;
-            default:
-                mEnterKey.label = res.getString(R.string.enter);
-                break;
-        }
-    }
+  }
 }
