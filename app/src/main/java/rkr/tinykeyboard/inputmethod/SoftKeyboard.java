@@ -34,24 +34,24 @@ import android.view.inputmethod.InputMethodManager;
 public class SoftKeyboard extends InputMethodService
     implements KeyboardView.OnKeyboardActionListener {
 
-  private InputMethodManager mInputMethodManager;
+  private InputMethodManager inputMethodManager;
 
-  private KeyboardView mInputView;
+  private KeyboardView inputView;
 
-  private int mLastDisplayWidth;
-  private boolean mCapsLock;
-  private long mLastShiftTime;
+  private int lastDisplayWidth;
+  private boolean capsLock;
+  private long lastShiftTime;
 
-  private LatinKeyboard mSymbolsKeyboard;
-  private LatinKeyboard mSymbolsShiftedKeyboard;
-  private LatinKeyboard mQwertyKeyboard;
+  private LatinKeyboard symbolsKeyboard;
+  private LatinKeyboard symbolsShiftedKeyboard;
+  private LatinKeyboard qwertyKeyboard;
 
-  private LatinKeyboard mCurKeyboard;
+  private LatinKeyboard curKeyboard;
 
   @Override
   public void onCreate() {
     super.onCreate();
-    mInputMethodManager = (InputMethodManager) getSystemService(INPUT_METHOD_SERVICE);
+    inputMethodManager = (InputMethodManager) getSystemService(INPUT_METHOD_SERVICE);
   }
 
   Context getDisplayContext() {
@@ -73,37 +73,37 @@ public class SoftKeyboard extends InputMethodService
   public void onInitializeInterface() {
     final Context displayContext = getDisplayContext();
 
-    if (mQwertyKeyboard != null) {
+    if (qwertyKeyboard != null) {
       // Configuration changes can happen after the keyboard gets recreated,
       // so we need to be able to re-build the keyboards if the available
       // space has changed.
       int displayWidth = getMaxWidth();
-      if (displayWidth == mLastDisplayWidth) {
+      if (displayWidth == lastDisplayWidth) {
         return;
       }
-      mLastDisplayWidth = displayWidth;
+      lastDisplayWidth = displayWidth;
     }
-    mQwertyKeyboard = new LatinKeyboard(displayContext, R.xml.qwerty);
-    mSymbolsKeyboard = new LatinKeyboard(displayContext, R.xml.symbols);
-    mSymbolsShiftedKeyboard = new LatinKeyboard(displayContext, R.xml.symbols_shift);
+    qwertyKeyboard = new LatinKeyboard(displayContext, R.xml.qwerty);
+    symbolsKeyboard = new LatinKeyboard(displayContext, R.xml.symbols);
+    symbolsShiftedKeyboard = new LatinKeyboard(displayContext, R.xml.symbols_shift);
   }
 
   @Override
   public View onCreateInputView() {
-    mInputView = (KeyboardView) getLayoutInflater().inflate(R.layout.input, null);
-    mInputView.setOnKeyboardActionListener(this);
-    mInputView.setPreviewEnabled(false);
-    setLatinKeyboard(mQwertyKeyboard);
-    return mInputView;
+    inputView = (KeyboardView) getLayoutInflater().inflate(R.layout.input, null);
+    inputView.setOnKeyboardActionListener(this);
+    inputView.setPreviewEnabled(false);
+    setLatinKeyboard(qwertyKeyboard);
+    return inputView;
   }
 
   private void setLatinKeyboard(LatinKeyboard nextKeyboard) {
     if (Build.VERSION.SDK_INT > Build.VERSION_CODES.KITKAT) {
       final boolean shouldSupportLanguageSwitchKey =
-          mInputMethodManager.shouldOfferSwitchingToNextInputMethod(getToken());
+          inputMethodManager.shouldOfferSwitchingToNextInputMethod(getToken());
       nextKeyboard.setLanguageSwitchKeyVisibility(shouldSupportLanguageSwitchKey);
     }
-    mInputView.setKeyboard(nextKeyboard);
+    inputView.setKeyboard(nextKeyboard);
   }
 
   @Override
@@ -118,28 +118,28 @@ public class SoftKeyboard extends InputMethodService
       case InputType.TYPE_CLASS_PHONE:
         // Numbers and dates default to the symbols keyboard, with
         // no extra features.
-        mCurKeyboard = mSymbolsKeyboard;
+        curKeyboard = symbolsKeyboard;
         break;
 
       default:
         // For all unknown input types, default to the alphabetic
         // keyboard with no special features.
-        mCurKeyboard = mQwertyKeyboard;
+        curKeyboard = qwertyKeyboard;
         updateShiftKeyState(attribute);
     }
 
     // Update the label on the enter key, depending on what the application
     // says it will do.
-    mCurKeyboard.setImeOptions(getResources(), attribute.imeOptions);
+    curKeyboard.setImeOptions(getResources(), attribute.imeOptions);
   }
 
   @Override
   public void onFinishInput() {
     super.onFinishInput();
 
-    mCurKeyboard = mQwertyKeyboard;
-    if (mInputView != null) {
-      mInputView.closing();
+    curKeyboard = qwertyKeyboard;
+    if (inputView != null) {
+      inputView.closing();
     }
   }
 
@@ -147,18 +147,18 @@ public class SoftKeyboard extends InputMethodService
   public void onStartInputView(EditorInfo attribute, boolean restarting) {
     super.onStartInputView(attribute, restarting);
     // Apply the selected keyboard to the input view.
-    setLatinKeyboard(mCurKeyboard);
-    mInputView.closing();
+    setLatinKeyboard(curKeyboard);
+    inputView.closing();
   }
 
   private void updateShiftKeyState(EditorInfo attr) {
-    if (attr != null && mInputView != null && mQwertyKeyboard == mInputView.getKeyboard()) {
+    if (attr != null && inputView != null && qwertyKeyboard == inputView.getKeyboard()) {
       int caps = 0;
       EditorInfo ei = getCurrentInputEditorInfo();
       if (ei != null && ei.inputType != InputType.TYPE_NULL) {
         caps = getCurrentInputConnection().getCursorCapsMode(attr.inputType);
       }
-      mInputView.setShifted(mCapsLock || caps != 0);
+      inputView.setShifted(capsLock || caps != 0);
     }
   }
 
@@ -178,13 +178,13 @@ public class SoftKeyboard extends InputMethodService
       handleShift();
     } else if (primaryCode == LatinKeyboard.KEYCODE_LANGUAGE_SWITCH) {
       handleLanguageSwitch();
-    } else if (primaryCode == Keyboard.KEYCODE_MODE_CHANGE && mInputView != null) {
-      Keyboard current = mInputView.getKeyboard();
-      if (current == mSymbolsKeyboard || current == mSymbolsShiftedKeyboard) {
-        setLatinKeyboard(mQwertyKeyboard);
+    } else if (primaryCode == Keyboard.KEYCODE_MODE_CHANGE && inputView != null) {
+      Keyboard current = inputView.getKeyboard();
+      if (current == symbolsKeyboard || current == symbolsShiftedKeyboard) {
+        setLatinKeyboard(qwertyKeyboard);
       } else {
-        setLatinKeyboard(mSymbolsKeyboard);
-        mSymbolsKeyboard.setShifted(false);
+        setLatinKeyboard(symbolsKeyboard);
+        symbolsKeyboard.setShifted(false);
       }
     } else {
       handleCharacter(primaryCode);
@@ -199,29 +199,29 @@ public class SoftKeyboard extends InputMethodService
   }
 
   private void handleShift() {
-    if (mInputView == null) {
+    if (inputView == null) {
       return;
     }
 
-    Keyboard currentKeyboard = mInputView.getKeyboard();
-    if (mQwertyKeyboard == currentKeyboard) {
+    Keyboard currentKeyboard = inputView.getKeyboard();
+    if (qwertyKeyboard == currentKeyboard) {
       // Alphabet keyboard
       checkToggleCapsLock();
-      mInputView.setShifted(mCapsLock || !mInputView.isShifted());
-    } else if (currentKeyboard == mSymbolsKeyboard) {
-      mSymbolsKeyboard.setShifted(true);
-      setLatinKeyboard(mSymbolsShiftedKeyboard);
-      mSymbolsShiftedKeyboard.setShifted(true);
-    } else if (currentKeyboard == mSymbolsShiftedKeyboard) {
-      mSymbolsShiftedKeyboard.setShifted(false);
-      setLatinKeyboard(mSymbolsKeyboard);
-      mSymbolsKeyboard.setShifted(false);
+      inputView.setShifted(capsLock || !inputView.isShifted());
+    } else if (currentKeyboard == symbolsKeyboard) {
+      symbolsKeyboard.setShifted(true);
+      setLatinKeyboard(symbolsShiftedKeyboard);
+      symbolsShiftedKeyboard.setShifted(true);
+    } else if (currentKeyboard == symbolsShiftedKeyboard) {
+      symbolsShiftedKeyboard.setShifted(false);
+      setLatinKeyboard(symbolsKeyboard);
+      symbolsKeyboard.setShifted(false);
     }
   }
 
   private void handleCharacter(int primaryCode) {
     if (isInputViewShown()) {
-      if (mInputView.isShifted()) {
+      if (inputView.isShifted()) {
         primaryCode = Character.toUpperCase(primaryCode);
       }
     }
@@ -243,17 +243,17 @@ public class SoftKeyboard extends InputMethodService
 
   private void handleLanguageSwitch() {
     if (Build.VERSION.SDK_INT > Build.VERSION_CODES.ICE_CREAM_SANDWICH_MR1) {
-      mInputMethodManager.switchToNextInputMethod(getToken(), false /* onlyCurrentIme */);
+      inputMethodManager.switchToNextInputMethod(getToken(), false /* onlyCurrentIme */);
     }
   }
 
   private void checkToggleCapsLock() {
     long now = System.currentTimeMillis();
-    if (mLastShiftTime + 800 > now) {
-      mCapsLock = !mCapsLock;
-      mLastShiftTime = 0;
+    if (lastShiftTime + 800 > now) {
+      capsLock = !capsLock;
+      lastShiftTime = 0;
     } else {
-      mLastShiftTime = now;
+      lastShiftTime = now;
     }
   }
 
