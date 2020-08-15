@@ -16,12 +16,12 @@
 
 package rkr.tinykeyboard.inputmethod;
 
+import android.annotation.SuppressLint;
 import android.app.Dialog;
 import android.content.Context;
 import android.inputmethodservice.InputMethodService;
 import android.inputmethodservice.Keyboard;
 import android.inputmethodservice.KeyboardView;
-import android.os.Build;
 import android.os.IBinder;
 import android.text.InputType;
 import android.view.KeyEvent;
@@ -55,10 +55,6 @@ public class SoftKeyboard extends InputMethodService
   }
 
   Context getDisplayContext() {
-    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.KITKAT) {
-      // createDisplayContext is not available.
-      return this;
-    }
     // TODO (b/133825283): Non-activity components Resources / DisplayMetrics update when
     //  moving to external display.
     // An issue in Q that non-activity components Resources / DisplayMetrics in
@@ -88,6 +84,7 @@ public class SoftKeyboard extends InputMethodService
     symbolsShiftedKeyboard = new LatinKeyboard(displayContext, R.xml.symbols_shift);
   }
 
+  @SuppressLint("InflateParams")
   @Override
   public View onCreateInputView() {
     inputView = (KeyboardView) getLayoutInflater().inflate(R.layout.input, null);
@@ -98,11 +95,9 @@ public class SoftKeyboard extends InputMethodService
   }
 
   private void setLatinKeyboard(LatinKeyboard nextKeyboard) {
-    if (Build.VERSION.SDK_INT > Build.VERSION_CODES.KITKAT) {
-      final boolean shouldSupportLanguageSwitchKey =
-          inputMethodManager.shouldOfferSwitchingToNextInputMethod(getToken());
-      nextKeyboard.setLanguageSwitchKeyVisibility(shouldSupportLanguageSwitchKey);
-    }
+    final boolean shouldSupportLanguageSwitchKey =
+        inputMethodManager.shouldOfferSwitchingToNextInputMethod(getToken());
+    nextKeyboard.setLanguageSwitchKeyVisibility(shouldSupportLanguageSwitchKey);
     inputView.setKeyboard(nextKeyboard);
   }
 
@@ -242,9 +237,7 @@ public class SoftKeyboard extends InputMethodService
   }
 
   private void handleLanguageSwitch() {
-    if (Build.VERSION.SDK_INT > Build.VERSION_CODES.ICE_CREAM_SANDWICH_MR1) {
-      inputMethodManager.switchToNextInputMethod(getToken(), false /* onlyCurrentIme */);
-    }
+    inputMethodManager.switchToNextInputMethod(getToken(), false /* onlyCurrentIme */);
   }
 
   private void checkToggleCapsLock() {
